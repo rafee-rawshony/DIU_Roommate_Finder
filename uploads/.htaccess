@@ -1,0 +1,5 @@
+# Prevent PHP execution in uploads folder
+# This stops hackers from uploading PHP files disguised as images
+Options -ExecCGI
+RemoveHandler .php .phtml .php3 .php4 .php5
+RemoveType .php .phtml .php3 .php4 .php5
