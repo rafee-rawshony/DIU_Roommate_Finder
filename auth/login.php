@@ -8,6 +8,9 @@ require_once '../config/db.php';
 
 // If already logged in, redirect to home
 if (isLoggedIn()) {
+    if (isset($_SESSION['is_admin']) && (int)$_SESSION['is_admin'] === 1) {
+        redirect('/admin/index.php');
+    }
     redirect('/index.php');
 }
 
@@ -39,7 +42,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $_SESSION['user_email']= $user['email'];
                 $_SESSION['is_admin']  = $user['is_admin'];
 
-                // Redirect to homepage after login
+                // Admins go directly to admin panel.
+                if ((int)$user['is_admin'] === 1) {
+                    redirect('/admin/index.php');
+                }
+
+                // Redirect regular users to homepage after login
                 redirect('/index.php');
 
             } else {

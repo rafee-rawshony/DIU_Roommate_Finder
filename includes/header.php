@@ -59,7 +59,7 @@ $is_admin     = ($is_logged_in && isset($_SESSION['is_admin']) && $_SESSION['is_
     <!-- ===== TOP NAVIGATION BAR ===== -->
     <nav class="sticky top-0 z-30 border-b border-borderSoft bg-white/95 backdrop-blur">
         <div class="bg-primary text-white text-center text-xs sm:text-sm font-semibold py-1.5">
-            Welcome to DIU Roommate Marketplace
+            Welcome to DIU Roommate Finder Website
         </div>
 
         <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3">
@@ -107,6 +107,9 @@ $is_admin     = ($is_logged_in && isset($_SESSION['is_admin']) && $_SESSION['is_
                                 <div class="absolute right-0 mt-2 w-44 rounded-xl border border-borderSoft bg-white shadow-soft p-2 z-40">
                                     <p class="px-3 py-2 text-xs text-accent/60 border-b border-borderSoft mb-1 truncate">Hi, <?php echo htmlspecialchars($user_name); ?></p>
                                     <a href="/dashboard/index.php" class="block px-3 py-2 rounded-lg text-sm font-semibold text-accent hover:bg-primaryLight hover:text-primary transition-colors">My Ads</a>
+                                    <?php if ($is_admin): ?>
+                                        <a href="/admin/index.php" class="block px-3 py-2 rounded-lg text-sm font-semibold text-accent hover:bg-primaryLight hover:text-primary transition-colors">Admin</a>
+                                    <?php endif; ?>
                                     <a href="/auth/logout.php" class="block px-3 py-2 rounded-lg text-sm font-semibold text-accent hover:bg-primaryLight hover:text-primary transition-colors">Logout</a>
                                 </div>
                             </details>

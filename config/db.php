@@ -50,11 +50,29 @@ function loadEnv($envPath) {
 
 function envValue($key, $default = '') {
     $value = getenv($key);
-    return ($value !== false) ? $value : $default;
+    if ($value !== false && $value !== '') {
+        return $value;
+    }
+
+    if (isset($_ENV[$key]) && $_ENV[$key] !== '') {
+        return $_ENV[$key];
+    }
+
+    if (isset($_SERVER[$key]) && $_SERVER[$key] !== '') {
+        return $_SERVER[$key];
+    }
+
+    return $default;
 }
 
 $rootDir = dirname(__DIR__);
 loadEnv($rootDir . DIRECTORY_SEPARATOR . '.env');
+
+$serverName = $_SERVER['SERVER_NAME'] ?? '';
+$serverAddr = $_SERVER['SERVER_ADDR'] ?? '';
+$isLocalRuntime = in_array($serverName, ['localhost', '127.0.0.1', '::1'], true)
+    || in_array($serverAddr, ['127.0.0.1', '::1'], true)
+    || PHP_SAPI === 'cli';
 
 // Primary database connection details (production/hosting)
 $host = envValue('DB_HOST', '');
@@ -62,16 +80,25 @@ $user = envValue('DB_USER', '');
 $pass = envValue('DB_PASS', '');
 $db   = envValue('DB_NAME', '');
 
+if ($host === '' || $user === '' || $db === '') {
+    die('Database config missing. Upload .env with DB_HOST, DB_USER, DB_PASS, DB_NAME.');
+}
+
 // Connect to the MySQL database
 $conn = false;
+$connectError = '';
 try {
     $conn = @mysqli_connect($host, $user, $pass, $db);
 } catch (mysqli_sql_exception $e) {
     $conn = false;
 }
 
-// Local development fallback when InfinityFree DB is unreachable.
 if (!$conn) {
+    $connectError = mysqli_connect_error();
+}
+
+// Local development fallback when InfinityFree DB is unreachable.
+if (!$conn && $isLocalRuntime) {
     $host = envValue('LOCAL_DB_HOST', '127.0.0.1');
     $user = envValue('LOCAL_DB_USER', 'root');
     $pass = envValue('LOCAL_DB_PASS', '');
@@ -81,11 +108,20 @@ if (!$conn) {
     } catch (mysqli_sql_exception $e) {
         $conn = false;
     }
+
+    if (!$conn) {
+        $fallbackError = mysqli_connect_error();
+        if ($connectError !== '') {
+            $connectError .= ' | Local fallback failed: ' . $fallbackError;
+        } else {
+            $connectError = $fallbackError;
+        }
+    }
 }
 
 // If connection fails, stop everything and show error
 if (!$conn) {
-    die("Database connection failed: " . mysqli_connect_error());
+    die("Database connection failed: " . ($connectError !== '' ? $connectError : mysqli_connect_error()));
 }
 
 // Set character encoding to UTF-8 (supports Bengali text)
