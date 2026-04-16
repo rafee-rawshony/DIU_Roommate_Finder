@@ -1,8 +1,8 @@
 <?php
 // =============================================
-// ads/post.php
-// Post a New Roommate Ad
-// Only logged-in users can post ads
+// ads/edit.php
+// Edit Roommate Ad
+// Only the owner or admin can edit
 // =============================================
 
 require_once '../config/db.php';
@@ -17,7 +17,37 @@ require_once '../includes/header.php';
 $error   = '';
 $success = '';
 
-// ---- Process Post Ad Form ----
+// Get ad ID from URL
+$ad_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+
+if ($ad_id <= 0) {
+    redirect('/index.php');
+}
+
+// Fetch the ad from database
+$sql = "SELECT * FROM ads WHERE id = $ad_id LIMIT 1";
+$result = mysqli_query($conn, $sql);
+
+if (mysqli_num_rows($result) == 0) {
+    redirect('/index.php');
+}
+
+$ad = mysqli_fetch_assoc($result);
+
+// Check if user is owner or admin
+$is_owner = ((int)$_SESSION['user_id'] === (int)$ad['user_id']);
+$is_admin = (isset($_SESSION['is_admin']) && $_SESSION['is_admin'] == 1);
+
+if (!$is_owner && !$is_admin) {
+    redirect('/index.php');
+}
+
+// Fetch all images for this ad
+$img_sql    = "SELECT id, image_path FROM ad_images WHERE ad_id = $ad_id ORDER BY id";
+$img_result = mysqli_query($conn, $img_sql);
+$images     = mysqli_fetch_all($img_result, MYSQLI_ASSOC);
+
+// ---- Process Edit Ad Form ----
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     // Get and clean form data
@@ -32,7 +62,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $telegram    = clean($conn, $_POST['telegram']);
     $facebook    = clean($conn, $_POST['facebook']);
     $expiry_days = (int) $_POST['expiry_days'];
-    $user_id     = $_SESSION['user_id'];
 
     // Validate required fields
     if (empty($title) || empty($description) || empty($phone)) {
@@ -45,41 +74,49 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $error = "Please select a valid expiry duration.";
     }
     else {
-        // Calculate expiry date (today + selected days)
+        // Calculate new expiry date
         $expires_at = date('Y-m-d H:i:s', strtotime("+$expiry_days days"));
 
-        // Insert the ad into the database
-        $sql = "INSERT INTO ads
-                    (user_id, title, description, rent, location, gender_tag, room_type,
-                     contact_phone, whatsapp, telegram, facebook, expiry_days, expires_at)
-                VALUES
-                    ($user_id, '$title', '$description', $rent, '$location', '$gender_tag',
-                     '$room_type', '$phone', '$whatsapp', '$telegram', '$facebook', $expiry_days, '$expires_at')";
+        // Update the ad in the database
+        $sql = "UPDATE ads
+                SET title = '$title',
+                    description = '$description',
+                    rent = $rent,
+                    location = '$location',
+                    gender_tag = '$gender_tag',
+                    room_type = '$room_type',
+                    contact_phone = '$phone',
+                    whatsapp = '$whatsapp',
+                    telegram = '$telegram',
+                    facebook = '$facebook',
+                    expiry_days = $expiry_days,
+                    expires_at = '$expires_at'
+                WHERE id = $ad_id";
 
         if (mysqli_query($conn, $sql)) {
 
-            // Get the ID of the new ad
-            $ad_id = mysqli_insert_id($conn);
-
             // ---- Handle Image Uploads ----
-            // Check if any images were uploaded
             if (!empty($_FILES['images']['name'][0])) {
 
                 $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
                 $max_size      = 2 * 1024 * 1024; // 2MB per image
                 $max_images    = 5; // Maximum 5 images per ad
 
-                // Count non-empty image uploads
-                $image_count = 0;
+                // Count current images
+                $current_count = count($images);
+
+                // Count new uploads
+                $new_count = 0;
                 foreach ($_FILES['images']['name'] as $name) {
-                    if (!empty($name)) $image_count++;
+                    if (!empty($name)) $new_count++;
                 }
 
-                // Validate image count
-                if ($image_count < 1) {
-                    $error .= " Please upload at least 1 image.";
-                } elseif ($image_count > $max_images) {
-                    $error .= " You can upload a maximum of $max_images images.";
+                // Total image count (existing + new)
+                $total_count = $current_count + $new_count;
+
+                // Validate total image count
+                if ($total_count > $max_images) {
+                    $error .= " Total images cannot exceed $max_images. You currently have $current_count images.";
                 } else {
                     // Loop through each uploaded file
                     foreach ($_FILES['images']['tmp_name'] as $key => $tmp) {
@@ -121,10 +158,45 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 }
             }
 
-            $success = "Your ad has been posted successfully!";
+            // Handle image deletions
+            if (isset($_POST['delete_images'])) {
+                $remaining_images = count($images) - count($_POST['delete_images']);
+                
+                // Check if at least 1 image will remain
+                if ($remaining_images >= 1) {
+                    foreach ($_POST['delete_images'] as $img_id) {
+                        $img_id = (int)$img_id;
+                        // Get image path before deleting
+                        $del_sql = "SELECT image_path FROM ad_images WHERE id = $img_id AND ad_id = $ad_id";
+                        $del_result = mysqli_query($conn, $del_sql);
+                        if ($del_row = mysqli_fetch_assoc($del_result)) {
+                            // Delete file from uploads folder
+                            $file_path = '../uploads/' . $del_row['image_path'];
+                            if (file_exists($file_path)) {
+                                unlink($file_path);
+                            }
+                        }
+                        // Delete from database
+                        $sql = "DELETE FROM ad_images WHERE id = $img_id AND ad_id = $ad_id";
+                        mysqli_query($conn, $sql);
+                    }
+                } else {
+                    $error .= " You must keep at least 1 image.";
+                }
+            }
+
+            if (!$error) {
+                $success = "Your ad has been updated successfully!";
+                // Refresh images list
+                $img_result = mysqli_query($conn, "SELECT id, image_path FROM ad_images WHERE ad_id = $ad_id ORDER BY id");
+                $images = mysqli_fetch_all($img_result, MYSQLI_ASSOC);
+                // Re-fetch ad
+                $result = mysqli_query($conn, "SELECT * FROM ads WHERE id = $ad_id LIMIT 1");
+                $ad = mysqli_fetch_assoc($result);
+            }
 
         } else {
-            $error = "Failed to post ad. Please try again.";
+            $error = "Failed to update ad. Please try again.";
         }
     }
 }
@@ -132,8 +204,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
 <!-- Page heading -->
 <section class="mb-6">
-    <h1 class="font-heading text-3xl text-accent">Post a New Ad</h1>
-    <p class="text-sm text-accent/65 mt-1">Share clear details to attract the right roommate faster.</p>
+    <a href="/dashboard/index.php" class="inline-flex items-center gap-2 text-primary hover:text-primaryDark transition-colors text-sm font-semibold mb-5">← Back to My Ads</a>
+    <h1 class="font-heading text-3xl text-accent">Edit Ad</h1>
+    <p class="text-sm text-accent/65 mt-1">Update your ad details and images.</p>
 </section>
 
 <?php if ($error): ?>
@@ -145,7 +218,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <?php if ($success): ?>
     <div class="bg-[#F0FDF4] border border-[#BBF7D0] text-[#15803D] rounded-xl px-4 py-3 mb-5 text-sm">
         <?php echo $success; ?>
-        <a href="/index.php" class="underline font-semibold ml-2">Go to Homepage</a>
     </div>
 <?php endif; ?>
 
@@ -159,7 +231,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             </label>
             <input type="text" name="title"
                    placeholder="e.g. Need roommate in Dhanmondi near DIU"
-                   value="<?php echo isset($_POST['title']) ? htmlspecialchars($_POST['title']) : ''; ?>"
+                   value="<?php echo htmlspecialchars($ad['title']); ?>"
                    required
                    class="w-full border border-borderSoft rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primaryLight focus:border-primary transition-all">
         </div>
@@ -172,25 +244,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             <textarea name="description" rows="5"
                       placeholder="Describe the room, facilities, nearby places, preferences..."
                       required
-                      class="w-full border border-borderSoft rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primaryLight focus:border-primary transition-all"><?php echo isset($_POST['description']) ? htmlspecialchars($_POST['description']) : ''; ?></textarea>
+                      class="w-full border border-borderSoft rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primaryLight focus:border-primary transition-all"><?php echo htmlspecialchars($ad['description']); ?></textarea>
         </div>
 
         <!-- Two columns: Rent and Location -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-
-            <!-- Rent -->
             <div>
                 <label class="block text-sm font-semibold text-accent/80 mb-1">
                     Monthly Rent (৳) <span class="text-red-500">*</span>
                 </label>
                 <input type="number" name="rent" min="0"
                        placeholder="e.g. 4000"
-                       value="<?php echo isset($_POST['rent']) ? htmlspecialchars($_POST['rent']) : ''; ?>"
+                       value="<?php echo htmlspecialchars($ad['rent']); ?>"
                        required
                        class="w-full border border-borderSoft rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primaryLight focus:border-primary transition-all">
             </div>
 
-            <!-- Location -->
             <div>
                 <label class="block text-sm font-semibold text-accent/80 mb-1">
                     Location <span class="text-accent/50 font-normal">(optional)</span>
@@ -200,7 +269,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     <option value="">-- Select a location --</option>
                     <?php foreach (getCommonLocations() as $loc): ?>
                         <option value="<?php echo htmlspecialchars($loc); ?>" 
-                                <?php echo (isset($_POST['location']) && $_POST['location']==$loc) ? 'selected' : ''; ?>>
+                                <?php echo ($ad['location']==$loc) ? 'selected' : ''; ?>>
                             <?php echo htmlspecialchars($loc); ?>
                         </option>
                     <?php endforeach; ?>
@@ -210,120 +279,131 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         <!-- Two columns: Gender Tag and Room Type -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-
-            <!-- Gender Tag -->
             <div>
                 <label class="block text-sm font-semibold text-accent/80 mb-1">
                     Suitable For <span class="text-red-500">*</span>
                 </label>
                 <select name="gender_tag" required
                         class="w-full border border-borderSoft rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primaryLight focus:border-primary transition-all">
-                    <option value="">-- Select --</option>
-                    <option value="male"   <?php echo (isset($_POST['gender_tag']) && $_POST['gender_tag']=='male')   ? 'selected' : ''; ?>>👨 Only Male</option>
-                    <option value="female" <?php echo (isset($_POST['gender_tag']) && $_POST['gender_tag']=='female') ? 'selected' : ''; ?>>👩 Only Female</option>
-                    <option value="any"    <?php echo (isset($_POST['gender_tag']) && $_POST['gender_tag']=='any')    ? 'selected' : ''; ?>>👥 Any Gender</option>
+                    <option value="male"   <?php echo ($ad['gender_tag']=='male')   ? 'selected' : ''; ?>>👨 Only Male</option>
+                    <option value="female" <?php echo ($ad['gender_tag']=='female') ? 'selected' : ''; ?>>👩 Only Female</option>
+                    <option value="any"    <?php echo ($ad['gender_tag']=='any')    ? 'selected' : ''; ?>>👥 Any Gender</option>
                 </select>
             </div>
 
-            <!-- Room Type -->
             <div>
                 <label class="block text-sm font-semibold text-accent/80 mb-1">
                     Room Type <span class="text-red-500">*</span>
                 </label>
                 <select name="room_type" required
                         class="w-full border border-borderSoft rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primaryLight focus:border-primary transition-all">
-                    <option value="">-- Select --</option>
-                    <option value="full"   <?php echo (isset($_POST['room_type']) && $_POST['room_type']=='full')   ? 'selected' : ''; ?>>🚪 Full Room</option>
-                    <option value="shared" <?php echo (isset($_POST['room_type']) && $_POST['room_type']=='shared') ? 'selected' : ''; ?>>🤝 Shared Roommate</option>
+                    <option value="full"   <?php echo ($ad['room_type']=='full')   ? 'selected' : ''; ?>>🚪 Full Room</option>
+                    <option value="shared" <?php echo ($ad['room_type']=='shared') ? 'selected' : ''; ?>>🤝 Shared Roommate</option>
                 </select>
             </div>
         </div>
 
         <!-- Contact fields -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-
-            <!-- Phone -->
             <div>
                 <label class="block text-sm font-semibold text-accent/80 mb-1">
                     Contact Phone <span class="text-red-500">*</span>
                 </label>
                 <input type="text" name="contact_phone"
                        placeholder="e.g. 01700000000"
-                       value="<?php echo isset($_POST['contact_phone']) ? htmlspecialchars($_POST['contact_phone']) : ''; ?>"
+                       value="<?php echo htmlspecialchars($ad['contact_phone']); ?>"
                        required
                        class="w-full border border-borderSoft rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primaryLight focus:border-primary transition-all">
             </div>
 
-            <!-- WhatsApp (Optional) -->
             <div>
                 <label class="block text-sm font-semibold text-accent/80 mb-1">
                     WhatsApp Number <span class="text-accent/50 font-normal">(optional)</span>
                 </label>
                 <input type="text" name="whatsapp"
                        placeholder="e.g. 01700000000"
-                       value="<?php echo isset($_POST['whatsapp']) ? htmlspecialchars($_POST['whatsapp']) : ''; ?>"
+                       value="<?php echo htmlspecialchars($ad['whatsapp']); ?>"
                        class="w-full border border-borderSoft rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primaryLight focus:border-primary transition-all">
             </div>
 
-            <!-- Telegram (Optional) -->
             <div>
                 <label class="block text-sm font-semibold text-accent/80 mb-1">
                     Telegram <span class="text-accent/50 font-normal">(optional)</span>
                 </label>
                 <input type="text" name="telegram"
-                       placeholder="e.g. username or t.me/username"
-                       value="<?php echo isset($_POST['telegram']) ? htmlspecialchars($_POST['telegram']) : ''; ?>"
+                       placeholder="@username or link"
+                       value="<?php echo htmlspecialchars($ad['telegram']); ?>"
                        class="w-full border border-borderSoft rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primaryLight focus:border-primary transition-all">
             </div>
 
-            <!-- Facebook (Optional) -->
-            <div class="sm:col-span-2 lg:col-span-3">
+            <div>
                 <label class="block text-sm font-semibold text-accent/80 mb-1">
-                    Facebook Profile <span class="text-accent/50 font-normal">(optional)</span>
+                    Facebook <span class="text-accent/50 font-normal">(optional)</span>
                 </label>
                 <input type="text" name="facebook"
-                       placeholder="e.g. facebook.com/yourprofile or yourprofile"
-                       value="<?php echo isset($_POST['facebook']) ? htmlspecialchars($_POST['facebook']) : ''; ?>"
+                       placeholder="Profile name or link"
+                       value="<?php echo htmlspecialchars($ad['facebook']); ?>"
                        class="w-full border border-borderSoft rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primaryLight focus:border-primary transition-all">
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-accent/80 mb-1">
+                    Duration <span class="text-red-500">*</span>
+                </label>
+                <select name="expiry_days" required
+                        class="w-full border border-borderSoft rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primaryLight focus:border-primary transition-all">
+                    <option value="7"  <?php echo ($ad['expiry_days']==7)  ? 'selected' : ''; ?>>7 Days</option>
+                    <option value="15" <?php echo ($ad['expiry_days']==15) ? 'selected' : ''; ?>>15 Days</option>
+                    <option value="30" <?php echo ($ad['expiry_days']==30) ? 'selected' : ''; ?>>30 Days</option>
+                    <option value="45" <?php echo ($ad['expiry_days']==45) ? 'selected' : ''; ?>>45 Days</option>
+                </select>
             </div>
         </div>
 
-        <!-- Ad Expiry -->
+        <!-- Current Images -->
+        <?php if (!empty($images)): ?>
+            <div>
+                <label class="block text-sm font-semibold text-accent/80 mb-2">
+                    Current Images (<?php echo count($images); ?>/5)
+                    <span class="text-accent/50 font-normal">Check to delete</span>
+                </label>
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    <?php foreach ($images as $img): ?>
+                        <label class="relative group cursor-pointer">
+                            <input type="checkbox" name="delete_images[]" value="<?php echo $img['id']; ?>" class="sr-only peer">
+                            <img src="/uploads/<?php echo htmlspecialchars($img['image_path']); ?>"
+                                 alt="Ad Image"
+                                 class="w-full h-24 object-cover rounded-lg border border-borderSoft peer-checked:opacity-50 transition-opacity">
+                            <div class="absolute inset-0 bg-red-500/0 peer-checked:bg-red-500/30 rounded-lg transition-colors flex items-center justify-center">
+                                <span class="text-white font-semibold opacity-0 peer-checked:opacity-100 transition-opacity">Delete</span>
+                            </div>
+                        </label>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <!-- Upload New Images -->
         <div>
-            <label class="block text-sm font-semibold text-accent/80 mb-1">
-                Ad Duration <span class="text-red-500">*</span>
+            <label class="block text-sm font-semibold text-accent/80 mb-2">
+                Add More Images <span class="text-accent/50 font-normal">(1-5 total, max 2MB each)</span>
             </label>
-            <select name="expiry_days" required
-                    class="w-full sm:w-64 border border-borderSoft rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primaryLight focus:border-primary transition-all">
-                <option value="7"  <?php echo (isset($_POST['expiry_days']) && $_POST['expiry_days']=='7')  ? 'selected' : ''; ?>>7 Days</option>
-                <option value="15" <?php echo (isset($_POST['expiry_days']) && $_POST['expiry_days']=='15') ? 'selected' : ''; ?>>15 Days</option>
-                <option value="30" <?php echo (!isset($_POST['expiry_days']) || $_POST['expiry_days']=='30') ? 'selected' : ''; ?>>30 Days (Recommended)</option>
-                <option value="45" <?php echo (isset($_POST['expiry_days']) && $_POST['expiry_days']=='45') ? 'selected' : ''; ?>>45 Days (Maximum)</option>
-            </select>
+            <input type="file" name="images[]" multiple accept="image/jpeg,image/png,image/gif,image/webp"
+                   class="w-full border border-dashed border-borderSoft rounded-xl px-4 py-6 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primaryLight focus:border-primary transition-all cursor-pointer">
+            <p class="text-xs text-accent/50 mt-2">Supported: JPG, PNG, GIF, WebP. Max 5 images total, 2MB each.</p>
         </div>
 
-        <!-- Image Upload -->
-        <div>
-            <label class="block text-sm font-semibold text-accent/80 mb-1">
-                Room Photos <span class="text-accent/50 font-normal">(optional, max 5 images, 2MB each)</span>
-            </label>
-            <input type="file" name="images[]" multiple accept="image/*"
-                   class="w-full border border-borderSoft rounded-xl px-4 py-2.5 text-sm bg-white">
-            <p class="text-xs text-accent/50 mt-1">Accepted: JPG, PNG, GIF, WebP</p>
-        </div>
-
-        <!-- Submit Button -->
-        <div class="flex gap-3 flex-wrap pt-1">
-            <button type="submit"
-                    class="bg-primary text-white px-8 py-2.5 rounded-xl hover:bg-primaryDark font-semibold text-sm transition-colors">
-                Post Ad
-            </button>
-            <a href="/index.php"
-               class="bg-primaryLight text-primary px-6 py-2.5 rounded-xl hover:bg-[#EAE6FF] font-semibold text-sm transition-colors">
+        <!-- Submit Buttons -->
+        <div class="flex gap-3 justify-end">
+            <a href="/dashboard/index.php"
+               class="px-6 py-2.5 rounded-xl border border-borderSoft text-accent font-semibold hover:bg-primaryLight transition-colors">
                 Cancel
             </a>
+            <button type="submit"
+                    class="px-6 py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primaryDark transition-colors">
+                Save Changes
+            </button>
         </div>
-
     </form>
 </div>
 

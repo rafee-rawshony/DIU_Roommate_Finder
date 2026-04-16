@@ -81,7 +81,9 @@ $total  = mysqli_num_rows($result);
                         <div class="flex items-start justify-between gap-3 flex-wrap">
                             <div>
                                 <h3 class="font-heading text-lg text-accent mb-1 truncate"><?php echo htmlspecialchars($ad['title']); ?></h3>
-                                <p class="text-sm text-accent/70">📍 <?php echo htmlspecialchars($ad['location']); ?> • <span class="font-semibold text-[#111827]">৳<?php echo number_format($ad['rent']); ?>/mo</span></p>
+                                <p class="text-sm text-accent/70">
+                                    <?php if (!empty($ad['location'])): ?>📍 <?php echo htmlspecialchars($ad['location']); ?> • <?php endif; ?><span class="font-semibold text-[#111827]">৳<?php echo number_format($ad['rent']); ?>/mo</span>
+                                </p>
                             </div>
                             <div class="flex items-center gap-2 flex-wrap">
                                 <span class="text-xs px-3 py-1 rounded-full font-semibold <?php echo $status_class; ?>"><?php echo $status_label; ?></span>
@@ -93,6 +95,7 @@ $total  = mysqli_num_rows($result);
 
                         <div class="mt-4 flex gap-2 flex-wrap">
                             <a href="/ads/details.php?id=<?php echo $ad['id']; ?>" class="inline-flex items-center bg-primaryLight text-primary px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#EAE6FF] transition-colors">View</a>
+                            <a href="/ads/edit.php?id=<?php echo $ad['id']; ?>" class="inline-flex items-center bg-[#E0E7FF] text-[#4C51BF] px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#C7D2FE] transition-colors">Edit</a>
                             <?php if ($is_hidden): ?>
                                 <a href="/ads/toggle_visibility.php?id=<?php echo $ad['id']; ?>&set=0"
                                    class="inline-flex items-center bg-[#DCFCE7] text-[#166534] px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#BBF7D0] transition-colors">

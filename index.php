@@ -7,11 +7,22 @@
 require_once 'config/db.php';   // DB connection + session
 require_once 'includes/header.php'; // Navigation bar
 
+// Get location filter if logged in
+$filter_location = '';
+if (isLoggedIn() && isset($_GET['location'])) {
+    $filter_location = clean($conn, $_GET['location']);
+}
+
 // Homepage shows the latest active ads as cards.
 $sql = "SELECT ads.*, users.name AS owner_name
         FROM ads
         JOIN users ON ads.user_id = users.id
     WHERE ads.expires_at > NOW() AND ads.is_hidden = 0";
+
+// Apply location filter if logged in and location is selected
+if (isLoggedIn() && $filter_location != '') {
+    $sql .= " AND ads.location = '$filter_location'";
+}
 
 // Show newest ads first
 $sql .= " ORDER BY ads.created_at DESC";
@@ -25,6 +36,29 @@ $result = mysqli_query($conn, $sql);
     <h1 class="font-heading text-4xl text-accent">Latest Rental Ads</h1>
     <p class="text-sm text-accent/60"><?php echo $total; ?> listing<?php echo $total == 1 ? '' : 's'; ?> available</p>
 </section>
+
+<!-- Location Filter (for logged-in users) -->
+<?php if (isLoggedIn()): ?>
+    <section class="mb-6 bg-cardBg border border-borderSoft rounded-2xl p-4">
+        <form method="GET" action="" class="flex gap-3 items-end flex-wrap">
+            <div class="flex-1 min-w-[250px]">
+                <label class="block text-sm font-semibold text-accent/80 mb-2">Filter by Location</label>
+                <select name="location" class="w-full border border-borderSoft rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primaryLight focus:border-primary transition-all">
+                    <option value="">-- All Locations --</option>
+                    <?php foreach (getCommonLocations() as $loc): ?>
+                        <option value="<?php echo htmlspecialchars($loc); ?>" <?php echo ($filter_location==$loc) ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($loc); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <button type="submit" class="bg-primary text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-primaryDark transition-colors text-sm">Filter</button>
+            <?php if ($filter_location): ?>
+                <a href="/" class="bg-primaryLight text-primary px-6 py-2.5 rounded-xl font-semibold hover:bg-[#EAE6FF] transition-colors text-sm">Clear</a>
+            <?php endif; ?>
+        </form>
+    </section>
+<?php endif; ?>
 
 <section>
     <?php if ($total == 0): ?>
@@ -64,13 +98,13 @@ $result = mysqli_query($conn, $sql);
                 ?>
 
                 <article class="group bg-cardBg rounded-2xl border border-borderSoft overflow-hidden shadow-sm hover:shadow-soft transition-all duration-300">
-                    <div class="relative">
+                    <div class="relative overflow-hidden h-56">
                         <?php if ($img_row): ?>
                             <img src="/uploads/<?php echo htmlspecialchars($img_row['image_path']); ?>"
                                  alt="Room Photo"
-                                 class="w-full h-56 object-cover">
+                                 class="w-full h-full object-cover">
                         <?php else: ?>
-                            <div class="w-full h-56 bg-primaryLight flex items-center justify-center">
+                            <div class="w-full h-full bg-primaryLight flex items-center justify-center">
                                 <img src="/public/128%20x%20128%20px.png" alt="DIU Roommate Finder Logo" class="h-14 w-14 object-contain">
                             </div>
                         <?php endif; ?>
@@ -92,7 +126,9 @@ $result = mysqli_query($conn, $sql);
                         </p>
 
                         <div class="flex items-center justify-between mb-3">
-                            <p class="text-sm text-accent/70">📍 <?php echo htmlspecialchars($ad['location']); ?></p>
+                            <p class="text-sm text-accent/70">
+                                <?php if (!empty($ad['location'])): ?>📍 <?php echo htmlspecialchars($ad['location']); ?><?php endif; ?>
+                            </p>
                             <p class="font-heading text-3xl leading-none font-semibold text-currency">৳<?php echo number_format($ad['rent']); ?></p>
                         </div>
                         <p class="text-[11px] text-accent/50 mb-4">per month</p>

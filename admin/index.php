@@ -132,11 +132,17 @@ $result = mysqli_query($conn, $sql);
                             </td>
 
                             <td class="px-4 py-3">
-                                <a href="/ads/delete.php?id=<?php echo $ad['id']; ?>"
-                                   onclick="return confirm('Delete this ad?')"
-                                   class="text-xs bg-red-100 text-red-600 px-3 py-1 rounded-lg hover:bg-red-200 font-medium">
-                                    Delete
-                                </a>
+                                <div class="flex gap-2 flex-wrap">
+                                    <a href="/ads/edit.php?id=<?php echo $ad['id']; ?>"
+                                       class="text-xs bg-blue-100 text-blue-600 px-3 py-1 rounded-lg hover:bg-blue-200 font-medium">
+                                        Edit
+                                    </a>
+                                    <a href="/ads/delete.php?id=<?php echo $ad['id']; ?>"
+                                       onclick="return confirm('Delete this ad?')"
+                                       class="text-xs bg-red-100 text-red-600 px-3 py-1 rounded-lg hover:bg-red-200 font-medium">
+                                        Delete
+                                    </a>
+                                </div>
                             </td>
 
                         </tr>

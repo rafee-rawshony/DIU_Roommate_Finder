@@ -145,18 +145,34 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
                     <div>
                         <label class="block text-sm font-semibold text-accent/80 mb-1">Password</label>
-                        <input type="password" name="password"
-                               placeholder="Minimum 6 characters"
-                               required
-                               class="w-full border border-borderSoft rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primaryLight focus:border-primary transition-all">
+                        <div class="relative">
+                            <input type="password" name="password"
+                                   id="register_password"
+                                   placeholder="Minimum 6 characters"
+                                   required
+                                   class="w-full border border-borderSoft rounded-xl px-4 py-2.5 pr-16 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primaryLight focus:border-primary transition-all">
+                            <button type="button"
+                                    onclick="togglePasswordText(this, 'register_password')"
+                                    class="absolute right-2 top-1/2 -translate-y-1/2 bg-primary text-white px-3 py-1 rounded-lg text-xs font-semibold hover:bg-primaryDark transition-colors">
+                                Show
+                            </button>
+                        </div>
                     </div>
 
                     <div>
                         <label class="block text-sm font-semibold text-accent/80 mb-1">Confirm Password</label>
-                        <input type="password" name="confirm_password"
-                               placeholder="Re-enter your password"
-                               required
-                               class="w-full border border-borderSoft rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primaryLight focus:border-primary transition-all">
+                        <div class="relative">
+                            <input type="password" name="confirm_password"
+                                   id="register_confirm_password"
+                                   placeholder="Re-enter your password"
+                                   required
+                                   class="w-full border border-borderSoft rounded-xl px-4 py-2.5 pr-16 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primaryLight focus:border-primary transition-all">
+                            <button type="button"
+                                    onclick="togglePasswordText(this, 'register_confirm_password')"
+                                    class="absolute right-2 top-1/2 -translate-y-1/2 bg-primary text-white px-3 py-1 rounded-lg text-xs font-semibold hover:bg-primaryDark transition-colors">
+                                Show
+                            </button>
+                        </div>
                     </div>
 
                     <button type="submit"
@@ -178,5 +194,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         </div>
     </div>
 
+    <script>
+        function togglePasswordText(btn, fieldId) {
+            const field = document.getElementById(fieldId);
+            if (field.type === 'password') {
+                field.type = 'text';
+                btn.textContent = 'Hide';
+            } else {
+                field.type = 'password';
+                btn.textContent = 'Show';
+            }
+        }
+    </script>
 </body>
 </html>

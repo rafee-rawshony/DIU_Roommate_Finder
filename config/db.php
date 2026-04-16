@@ -151,4 +151,97 @@ function clean($conn, $data) {
     $data = mysqli_real_escape_string($conn, $data);
     return $data;
 }
+
+// Resize image to uniform dimensions (600x400px)
+// Usage: resizeImage($tmp_path, $dest_path, 600, 400);
+function resizeImage($source, $destination, $max_width = 600, $max_height = 400) {
+    $info = getimagesize($source);
+    
+    if (!$info) return false;
+    
+    $mime = $info['mime'];
+    
+    // Create image from file
+    switch ($mime) {
+        case 'image/jpeg':
+            $image = imagecreatefromjpeg($source);
+            break;
+        case 'image/png':
+            $image = imagecreatefrompng($source);
+            break;
+        case 'image/gif':
+            $image = imagecreatefromgif($source);
+            break;
+        case 'image/webp':
+            $image = imagecreatefromwebp($source);
+            break;
+        default:
+            return false;
+    }
+    
+    if (!$image) return false;
+    
+    $width = imagesx($image);
+    $height = imagesy($image);
+    
+    // Calculate new dimensions maintaining aspect ratio
+    $ratio = min($max_width / $width, $max_height / $height);
+    $new_width = (int)($width * $ratio);
+    $new_height = (int)($height * $ratio);
+    
+    // Create new image with target dimensions (center the resized image)
+    $new_image = imagecreatetruecolor($max_width, $max_height);
+    $bg_color = imagecolorallocate($new_image, 255, 255, 255);
+    imagefill($new_image, 0, 0, $bg_color);
+    
+    // Calculate offset to center the image
+    $offset_x = (int)(($max_width - $new_width) / 2);
+    $offset_y = (int)(($max_height - $new_height) / 2);
+    
+    // Copy resized image to new canvas
+    imagecopyresampled($new_image, $image, $offset_x, $offset_y, 0, 0, 
+                       $new_width, $new_height, $width, $height);
+    
+    // Save resized image
+    switch ($mime) {
+        case 'image/jpeg':
+            imagejpeg($new_image, $destination, 90);
+            break;
+        case 'image/png':
+            imagepng($new_image, $destination, 9);
+            break;
+        case 'image/gif':
+            imagegif($new_image, $destination);
+            break;
+        case 'image/webp':
+            imagewebp($new_image, $destination, 90);
+            break;
+    }
+    
+    imagedestroy($image);
+    imagedestroy($new_image);
+    
+    return true;
+}
+
+// Common locations in Dhaka
+function getCommonLocations() {
+    return [
+        'Dhanmondi',
+        'Mirpur',
+        'Bashundhara',
+        'Gulshan',
+        'Banani',
+        'Uttara',
+        'Asad Gate',
+        'Shahbag',
+        'Farmgate',
+        'Motijheel',
+        'Kawran Bazar',
+        'Jatrabari',
+        'Adabor',
+        'Badda',
+        'Mohammadpur'
+    ];
+}
 ?>
