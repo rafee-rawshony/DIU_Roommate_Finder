@@ -145,7 +145,10 @@ if ($facebook_value !== '') {
 
             <h1 class="font-heading text-2xl text-accent mb-2"><?php echo htmlspecialchars($ad['title']); ?></h1>
             <?php if ($logged_in && !empty($ad['location'])): ?>
-                <p class="text-sm text-accent/70 mb-4">📍 <?php echo htmlspecialchars($ad['location']); ?></p>
+                <p class="text-sm text-accent/70 mb-2">📍 <?php echo htmlspecialchars($ad['location']); ?></p>
+            <?php endif; ?>
+            <?php if ($logged_in && !empty($ad['google_location'])): ?>
+                <p class="text-sm text-accent/70 mb-4">🗺️ <?php echo htmlspecialchars($ad['google_location']); ?></p>
             <?php endif; ?>
 
             <div class="rounded-xl bg-primaryLight px-4 py-3 mb-5">

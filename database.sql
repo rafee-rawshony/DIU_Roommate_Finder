@@ -22,7 +22,8 @@ CREATE TABLE IF NOT EXISTS ads (
     title VARCHAR(200) NOT NULL,
     description TEXT NOT NULL,
     rent DECIMAL(10,2) NOT NULL,               -- Monthly rent in BDT
-    location VARCHAR(200) DEFAULT NULL,        -- Optional location
+    location VARCHAR(200) NOT NULL,            -- Required location
+    google_location VARCHAR(500) DEFAULT NULL, -- Optional Google Maps location
     gender_tag ENUM('male', 'female', 'any') NOT NULL,  -- Who can apply
     room_type ENUM('full', 'shared') NOT NULL,           -- Full room or shared
     contact_phone VARCHAR(20) NOT NULL,
@@ -45,8 +46,9 @@ ALTER TABLE ads ADD COLUMN IF NOT EXISTS is_hidden TINYINT(1) NOT NULL DEFAULT 0
 ALTER TABLE ads ADD COLUMN IF NOT EXISTS expiry_days INT NOT NULL DEFAULT 30;
 ALTER TABLE ads ADD COLUMN IF NOT EXISTS expires_at DATETIME NOT NULL;
 ALTER TABLE ads ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
--- Modify existing location column to be nullable
-ALTER TABLE ads MODIFY COLUMN location VARCHAR(200) DEFAULT NULL;
+ALTER TABLE ads ADD COLUMN IF NOT EXISTS google_location VARCHAR(500) DEFAULT NULL;
+-- Make location required
+ALTER TABLE ads MODIFY COLUMN location VARCHAR(200) NOT NULL;
 
 -- Table: ad_images
 -- Stores images for each ad (one ad can have multiple images)

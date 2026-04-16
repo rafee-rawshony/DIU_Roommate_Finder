@@ -126,9 +126,16 @@ $result = mysqli_query($conn, $sql);
                         </p>
 
                         <div class="flex items-center justify-between mb-3">
-                            <p class="text-sm text-accent/70">
-                                <?php if (!empty($ad['location'])): ?>📍 <?php echo htmlspecialchars($ad['location']); ?><?php endif; ?>
-                            </p>
+                            <div>
+                                <p class="text-sm text-accent/70">
+                                    <?php if (!empty($ad['location'])): ?>📍 <?php echo htmlspecialchars($ad['location']); ?><?php endif; ?>
+                                </p>
+                                <?php if (!empty($ad['google_location'])): ?>
+                                <p class="text-xs text-accent/60">
+                                    🗺️ <?php echo htmlspecialchars($ad['google_location']); ?>
+                                </p>
+                                <?php endif; ?>
+                            </div>
                             <p class="font-heading text-3xl leading-none font-semibold text-currency">৳<?php echo number_format($ad['rent']); ?></p>
                         </div>
                         <p class="text-[11px] text-accent/50 mb-4">per month</p>

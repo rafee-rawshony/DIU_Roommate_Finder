@@ -25,6 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $description = clean($conn, $_POST['description']);
     $rent        = (float) $_POST['rent'];
     $location    = clean($conn, $_POST['location']);
+    $google_location = clean($conn, $_POST['google_location']);
     $gender_tag  = clean($conn, $_POST['gender_tag']);
     $room_type   = clean($conn, $_POST['room_type']);
     $phone       = clean($conn, $_POST['contact_phone']);
@@ -35,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $user_id     = $_SESSION['user_id'];
 
     // Validate required fields
-    if (empty($title) || empty($description) || empty($phone)) {
+    if (empty($title) || empty($description) || empty($phone) || empty($location)) {
         $error = "Please fill in all required fields.";
     }
     elseif ($rent <= 0) {
@@ -50,10 +51,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         // Insert the ad into the database
         $sql = "INSERT INTO ads
-                    (user_id, title, description, rent, location, gender_tag, room_type,
+                    (user_id, title, description, rent, location, google_location, gender_tag, room_type,
                      contact_phone, whatsapp, telegram, facebook, expiry_days, expires_at)
                 VALUES
-                    ($user_id, '$title', '$description', $rent, '$location', '$gender_tag',
+                    ($user_id, '$title', '$description', $rent, '$location', '$google_location', '$gender_tag',
                      '$room_type', '$phone', '$whatsapp', '$telegram', '$facebook', $expiry_days, '$expires_at')";
 
         if (mysqli_query($conn, $sql)) {
@@ -190,43 +191,27 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                        class="w-full border border-borderSoft rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primaryLight focus:border-primary transition-all">
             </div>
 
-            <!-- Location -->
+            <!-- Location (Required) -->
             <div>
-                <label class="block text-sm font-semibold text-accent/80 mb-2">
-                    Location <span class="text-accent/50 font-normal">(optional)</span>
+                <label class="block text-sm font-semibold text-accent/80 mb-1">
+                    Location <span class="text-red-500">*</span>
                 </label>
-                <div class="space-y-3">
-                    <!-- Option 1: Select from dropdown -->
-                    <div>
-                        <label class="text-xs font-semibold text-accent/70 mb-1 block">Select from Common Locations:</label>
-                        <select name="location" id="location_select"
-                                onchange="updateLocationInput(this.value)"
-                                class="w-full border border-borderSoft rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primaryLight focus:border-primary transition-all">
-                            <option value="">-- Choose location --</option>
-                            <?php foreach (getCommonLocations() as $loc): ?>
-                                <option value="<?php echo htmlspecialchars($loc); ?>" 
-                                        <?php echo (isset($_POST['location']) && $_POST['location']==$loc) ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($loc); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
+                <input type="text" name="location"
+                       placeholder="e.g. Dhanmondi, Dhaka"
+                       value="<?php echo isset($_POST['location']) ? htmlspecialchars($_POST['location']) : ''; ?>"
+                       required
+                       class="w-full border border-borderSoft rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primaryLight focus:border-primary transition-all">
+            </div>
 
-                    <!-- Option 2: Manual entry or Google Maps -->
-                    <div>
-                        <label class="text-xs font-semibold text-accent/70 mb-1 block">Or Type Location Manually / Use Google Maps:</label>
-                        <div class="flex gap-2">
-                            <input type="text" id="location_input" name="location"
-                                   placeholder="Type location or click Google Maps button"
-                                   value="<?php echo isset($_POST['location']) ? htmlspecialchars($_POST['location']) : ''; ?>"
-                                   class="flex-1 border border-borderSoft rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primaryLight focus:border-primary transition-all">
-                            <button type="button" onclick="openGoogleMaps()" 
-                                    class="px-4 py-2.5 bg-primary text-white rounded-xl font-semibold hover:bg-primaryDark transition-colors text-sm whitespace-nowrap">
-                                📍 Maps
-                            </button>
-                        </div>
-                    </div>
-                </div>
+            <!-- Google Location (Optional) -->
+            <div>
+                <label class="block text-sm font-semibold text-accent/80 mb-1">
+                    Google Maps Location <span class="text-accent/50 font-normal">(optional)</span>
+                </label>
+                <input type="text" name="google_location"
+                       placeholder="Paste Google Maps address here"
+                       value="<?php echo isset($_POST['google_location']) ? htmlspecialchars($_POST['google_location']) : ''; ?>"
+                       class="w-full border border-borderSoft rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primaryLight focus:border-primary transition-all">
             </div>
         </div>
 
@@ -349,80 +334,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     </form>
 </div>
 
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBXnrPhMiEDrxHqVgFQ5r_jXLQQNVL6TIo"></script>
-<script>
-    let googleMap;
-    let marker;
 
-    function updateLocationInput(value) {
-        document.getElementById('location_input').value = value;
-    }
-
-    function openGoogleMaps() {
-        // Create modal for map
-        const modal = document.createElement('div');
-        modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;';
-        
-        const container = document.createElement('div');
-        container.style.cssText = 'background:white;border-radius:12px;width:90%;max-width:600px;height:500px;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(26, 26, 46, 0.08);';
-        
-        const header = document.createElement('div');
-        header.style.cssText = 'padding:16px;border-bottom:1px solid #f3f4f6;display:flex;justify-content:space-between;align-items:center;';
-        header.innerHTML = '<h2 style="margin:0;font-size:18px;font-weight:600;color:#1a1a2e;">Select Location on Map</h2><button onclick="this.closest(\'[data-modal]\').remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#999;">×</button>';
-        
-        const mapContainer = document.createElement('div');
-        mapContainer.style.cssText = 'flex:1;min-height:0;';
-        
-        const footer = document.createElement('div');
-        footer.style.cssText = 'padding:16px;border-top:1px solid #f3f4f6;display:flex;gap:8px;justify-content:flex-end;';
-        footer.innerHTML = '<button onclick="this.closest(\'[data-modal]\').remove()" style="padding:10px 24px;border:1px solid #f3f4f6;border-radius:9px;cursor:pointer;background:white;color:#1a1a2e;font-weight:600;">Cancel</button><button onclick="selectMapLocation()" style="padding:10px 24px;border-radius:9px;cursor:pointer;background:#634c9f;color:white;border:none;font-weight:600;">Select Location</button>';
-        
-        container.appendChild(header);
-        container.appendChild(mapContainer);
-        container.appendChild(footer);
-        modal.setAttribute('data-modal', 'true');
-        modal.appendChild(container);
-        document.body.appendChild(modal);
-        
-        // Initialize map (Dhaka center)
-        googleMap = new google.maps.Map(mapContainer, {
-            zoom: 13,
-            center: { lat: 23.8103, lng: 90.4125 }
-        });
-        
-        // Add marker on click
-        googleMap.addListener('click', (e) => {
-            if (marker) marker.setMap(null);
-            marker = new google.maps.Marker({
-                position: e.latLng,
-                map: googleMap
-            });
-            
-            // Get address from coordinates
-            const geocoder = new google.maps.Geocoder();
-            geocoder.geocode({ location: e.latLng }, (results, status) => {
-                if (status === 'OK' && results[0]) {
-                    const address = results[0].formatted_address;
-                    marker.setTitle(address);
-                }
-            });
-        });
-    }
-
-    function selectMapLocation() {
-        if (marker) {
-            const geocoder = new google.maps.Geocoder();
-            geocoder.geocode({ location: marker.getPosition() }, (results, status) => {
-                if (status === 'OK' && results[0]) {
-                    const address = results[0].formatted_address;
-                    document.getElementById('location_input').value = address;
-                }
-                document.querySelector('[data-modal]')?.remove();
-            });
-        } else {
-            alert('Please click on the map to select a location');
-        }
-    }
-</script>
 
 <?php require_once '../includes/footer.php'; ?>

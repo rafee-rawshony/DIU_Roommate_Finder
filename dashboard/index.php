@@ -84,6 +84,11 @@ $total  = mysqli_num_rows($result);
                                 <p class="text-sm text-accent/70">
                                     <?php if (!empty($ad['location'])): ?>📍 <?php echo htmlspecialchars($ad['location']); ?> • <?php endif; ?><span class="font-semibold text-[#111827]">৳<?php echo number_format($ad['rent']); ?>/mo</span>
                                 </p>
+                                <?php if (!empty($ad['google_location'])): ?>
+                                <p class="text-xs text-accent/60">
+                                    🗺️ <?php echo htmlspecialchars($ad['google_location']); ?>
+                                </p>
+                                <?php endif; ?>
                             </div>
                             <div class="flex items-center gap-2 flex-wrap">
                                 <span class="text-xs px-3 py-1 rounded-full font-semibold <?php echo $status_class; ?>"><?php echo $status_label; ?></span>
