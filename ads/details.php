@@ -144,7 +144,9 @@ if ($facebook_value !== '') {
             </div>
 
             <h1 class="font-heading text-2xl text-accent mb-2"><?php echo htmlspecialchars($ad['title']); ?></h1>
-            <p class="text-sm text-accent/70 mb-4">📍 <?php echo htmlspecialchars($ad['location']); ?></p>
+            <?php if ($logged_in && !empty($ad['location'])): ?>
+                <p class="text-sm text-accent/70 mb-4">📍 <?php echo htmlspecialchars($ad['location']); ?></p>
+            <?php endif; ?>
 
             <div class="rounded-xl bg-primaryLight px-4 py-3 mb-5">
                 <p class="text-xs text-accent/60">Monthly Rent</p>
