@@ -41,7 +41,7 @@ $total = mysqli_num_rows($result);
 ?>
 
 <section class="mb-5">
-    <p class="text-sm text-accent/60">Marketplace Home / <span class="font-semibold text-primary">Explore</span></p>
+    <p class="text-sm text-accent/60">Home / <span class="font-semibold text-primary">Explore</span></p>
 </section>
 
 <section class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
